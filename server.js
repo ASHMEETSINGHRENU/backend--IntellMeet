@@ -1,64 +1,150 @@
-const express = require('express');
-const mongoose = require('mongoose');
-const cors = require('cors');
-const dotenv = require('dotenv');
+const express = require("express");
+const mongoose = require("mongoose");
+const cors = require("cors");
+const dotenv = require("dotenv");
 
 dotenv.config();
 
 const app = express();
 
-app.use(cors());
+
+// =====================
+// Middleware
+// =====================
+
+const allowedOrigins = [
+  "http://localhost:3000",
+  "https://frontend-intell-meet.vercel.app"
+];
+
+app.use(
+  cors({
+    origin: function (origin, callback) {
+
+      // Allow Postman/mobile/server requests
+      if (!origin) return callback(null, true);
+
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+
+      return callback(new Error("Not allowed by CORS"));
+    },
+    credentials: true
+  })
+);
+
+
 app.use(express.json());
 
 
-// Test route
-app.get('/', (req, res) => {
-  res.send('IntellMeet backend is running');
+// =====================
+// Routes Import
+// =====================
+
+const authRoutes = require("./routes/authRoutes");
+const meetingRoutes = require("./routes/meetingRoutes");
+const teamRoutes = require("./routes/teamRoutes");
+const taskRoutes = require("./routes/taskRoutes");
+const summaryRoutes = require("./routes/summaryRoutes");
+const analyticsRoutes = require("./routes/analyticsRoutes");
+
+
+// =====================
+// Test Routes
+// =====================
+
+app.get("/", (req, res) => {
+  res.json({
+    success: true,
+    message: "IntellMeet Backend API is running 🚀"
+  });
 });
 
 
-// Import routes
-const authRoutes = require('./routes/authRoutes');
-const meetingRoutes = require('./routes/meetingRoutes');
-const teamRoutes = require('./routes/teamRoutes');
-const taskRoutes = require('./routes/taskRoutes');
-const summaryRoutes = require('./routes/summaryRoutes');
-const analyticsRoutes = require('./routes/analyticsRoutes');
-
-
-// MongoDB connection
-mongoose.connect(process.env.MONGO_URI)
-  .then(() => {
-    console.log('MongoDB connected');
-  })
-  .catch((err) => {
-    console.error('MongoDB connection error:', err);
+app.get("/health", (req, res) => {
+  res.json({
+    status: "OK",
+    database:
+      mongoose.connection.readyState === 1
+        ? "connected"
+        : "disconnected"
   });
+});
 
 
-// Routes
-app.use('/api/auth', authRoutes);
-app.use('/api/meetings', meetingRoutes);
-app.use('/api/teams', teamRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/summaries', summaryRoutes);
-app.use('/api/analytics', analyticsRoutes);
+// =====================
+// API Routes
+// =====================
+
+app.use("/api/auth", authRoutes);
+
+app.use("/api/meetings", meetingRoutes);
+
+app.use("/api/teams", teamRoutes);
+
+app.use("/api/tasks", taskRoutes);
+
+app.use("/api/summaries", summaryRoutes);
+
+app.use("/api/analytics", analyticsRoutes);
 
 
-// Error handling
+// =====================
+// Error Handler
+// =====================
+
 app.use((err, req, res, next) => {
-  console.error(err.stack);
+
+  console.error(err);
 
   res.status(500).json({
-    success: false,
-    message: err.message || 'Internal Server Error'
+    success:false,
+    message:
+      err.message || "Internal Server Error"
   });
+
 });
 
 
-// Start server
+
+// =====================
+// MongoDB + Server Start
+// =====================
+
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+
+const startServer = async () => {
+
+  try {
+
+    await mongoose.connect(process.env.MONGO_URI);
+
+    console.log("MongoDB connected successfully");
+
+
+    app.listen(PORT, () => {
+
+      console.log(
+        `Server running on port ${PORT}`
+      );
+
+    });
+
+
+  } catch(error){
+
+    console.error(
+      "MongoDB connection failed:",
+      error.message
+    );
+
+    process.exit(1);
+
+  }
+
+};
+
+
+startServer();
